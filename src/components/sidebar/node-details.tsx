@@ -186,7 +186,7 @@ const NodeDetails: React.FC = () => {
               </TooltipTrigger>
               <TooltipContent>
                 {useMockData 
-                  ? "Only available in real data mode" 
+                  ? "Only available in Production Mode" 
                   : "Runs iperf3 performance test via API"}
               </TooltipContent>
             </Tooltip>

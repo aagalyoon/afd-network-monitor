@@ -4,6 +4,7 @@ import { NetworkNode, NetworkConnection, NodeStatus, DiagnosticResult, NetworkDa
 import { toast } from '@/components/ui/use-toast';
 import { NetworkAPI } from '@/services/network-api';
 import { useSettings } from './settings-context';
+import { API_CONFIG, logApiConfig } from '@/config/api-config';
 
 type ActiveTab = 'nodes' | 'details' | 'diagnostics';
 
@@ -28,6 +29,8 @@ interface NetworkContextType {
   updateFilters: (filters: Partial<NetworkDataState['filters']>) => void;
   getNodeById: (nodeId: string) => NetworkNode | undefined;
   getConnectionsForNode: (nodeId: string) => NetworkConnection[];
+  refreshNetworkData: () => Promise<void>;
+  isLoading: boolean;
 }
 
 const NetworkContext = createContext<NetworkContextType | undefined>(undefined);
@@ -41,13 +44,63 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
     selectedNodeId: null,
     diagnostics: [],
     filters: {
-      status: ['healthy', 'degraded', 'critical'],
+      status: ['healthy', 'degraded', 'critical', 'unknown'],
       searchTerm: '',
     },
   });
   
   const [activeTab, setActiveTab] = useState<ActiveTab>('nodes');
   const [popupNodeId, setPopupNodeId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  // Load network data based on mock mode setting
+  const loadNetworkData = async () => {
+    setIsLoading(true);
+    try {
+      if (useMockData) {
+        // Use mock data
+        setNetworkData(prev => ({
+          ...prev,
+          nodes: mockNodes,
+          connections: mockConnections,
+        }));
+        toast({
+          title: "Network Data Loaded",
+          description: `Loaded ${mockNodes.length} nodes and ${mockConnections.length} connections`,
+          variant: "default"
+        });
+      } else {
+        // Use real data from API
+        const { nodes, connections } = await NetworkAPI.getNetworkData();
+        setNetworkData(prev => ({
+          ...prev,
+          nodes,
+          connections,
+        }));
+        toast({
+          title: "Network Data Loaded",
+          description: `Loaded ${nodes.length} nodes and ${connections.length} connections`,
+          variant: "default"
+        });
+      }
+    } catch (error) {
+      console.error("Error loading network data:", error);
+      toast({
+        title: "Error Loading Data",
+        description: "Failed to load network data. Check console for details.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Reload data when mock mode changes
+  useEffect(() => {
+    loadNetworkData();
+    // Log API configuration in development
+    logApiConfig();
+  }, [useMockData]);
 
   // Filter nodes based on current filters
   const filteredNodes = networkData.nodes.filter((node) => {
@@ -100,6 +153,14 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
         description: `Pinged ${node.name} (${node.ip}) with ${pingResult.metrics?.packetLoss}% packet loss`,
         variant: pingResult.success ? 'default' : 'destructive',
       });
+
+      // Update node metrics and status if we're using real data
+      if (!useMockData && pingResult.metrics) {
+        updateNodeMetrics(nodeId, {
+          latency: pingResult.metrics.avgLatency || 0,
+          packetLoss: pingResult.metrics.packetLoss || 0
+        });
+      }
     });
   };
 
@@ -129,6 +190,11 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
         description: `Traceroute to ${node.name} (${node.ip}) completed with ${tracerouteResult.results.length} hops`,
         variant: tracerouteResult.success ? 'default' : 'destructive',
       });
+
+      // If traceroute failed and we're using real data, update the node status
+      if (!useMockData && !tracerouteResult.success) {
+        updateNodeStatus(nodeId, 'critical');
+      }
     });
   };
   
@@ -168,6 +234,14 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
         description: `Network test to ${node.name} (${node.ip}) completed`,
         variant: networkTestResult.success ? 'default' : 'destructive',
       });
+
+      // Update node metrics from test result
+      if (networkTestResult.metrics) {
+        updateNodeMetrics(nodeId, {
+          latency: networkTestResult.metrics.avgLatency,
+          packetLoss: networkTestResult.metrics.packetLoss
+        });
+      }
     });
   };
 
@@ -191,14 +265,91 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
     );
   };
 
-  // Initial app loading simulation for user experience
-  useEffect(() => {
-    // Simulate initial node data loading
-    toast({
-      title: "Network Data Loaded",
-      description: `Loaded ${networkData.nodes.length} nodes and ${networkData.connections.length} connections`,
+  // Helper to directly update a node's status
+  const updateNodeStatus = (nodeId: string, status: NodeStatus) => {
+    setNetworkData((prev) => {
+      const updatedNodes = prev.nodes.map(node => {
+        if (node.id === nodeId) {
+          return { ...node, status };
+        }
+        return node;
+      });
+      
+      // Also update any connections this node is part of
+      const updatedConnections = prev.connections.map(conn => {
+        if (conn.source === nodeId || conn.target === nodeId) {
+          // If one end of the connection is critical, mark the connection as critical
+          if (status === 'critical') {
+            return { ...conn, status: 'critical' as NodeStatus };
+          }
+          // If degraded, only mark as degraded if not already critical
+          else if (status === 'degraded' && conn.status !== 'critical') {
+            return { ...conn, status: 'degraded' as NodeStatus };
+          }
+        }
+        return conn;
+      });
+      
+      return { 
+        ...prev, 
+        nodes: updatedNodes,
+        connections: updatedConnections
+      };
     });
-  }, []);
+  };
+
+  // Helper to update node metrics based on diagnostic results
+  const updateNodeMetrics = (nodeId: string, metrics: { latency?: number, packetLoss?: number }) => {
+    setNetworkData((prev) => {
+      // Find the node to update
+      const updatedNodes = prev.nodes.map(node => {
+        if (node.id === nodeId) {
+          // Update the metrics
+          const updatedMetrics = { ...node.metrics };
+          if (metrics.latency !== undefined) updatedMetrics.latency = metrics.latency;
+          if (metrics.packetLoss !== undefined) updatedMetrics.packetLoss = metrics.packetLoss;
+          
+          // Determine new status based on thresholds from API config
+          const newStatus = NetworkAPI.determineStatus(metrics);
+          
+          return { 
+            ...node, 
+            metrics: updatedMetrics, 
+            status: newStatus
+          };
+        }
+        return node;
+      });
+      
+      // Find any connections that this node is part of
+      const nodeStatus = updatedNodes.find(n => n.id === nodeId)?.status || 'unknown';
+      const updatedConnections = prev.connections.map(conn => {
+        if (conn.source === nodeId || conn.target === nodeId) {
+          // If node is critical, connection is critical
+          if (nodeStatus === 'critical') {
+            return { ...conn, status: 'critical' as NodeStatus };
+          }
+          // If node is degraded, connection is degraded (unless already critical)
+          else if (nodeStatus === 'degraded' && conn.status !== 'critical') {
+            return { ...conn, status: 'degraded' as NodeStatus };
+          }
+          // Otherwise connections stay as-is
+        }
+        return conn;
+      });
+      
+      return { 
+        ...prev, 
+        nodes: updatedNodes,
+        connections: updatedConnections
+      };
+    });
+  };
+
+  // Function to manually refresh network data
+  const refreshNetworkData = async () => {
+    await loadNetworkData();
+  };
 
   return (
     <NetworkContext.Provider
@@ -220,6 +371,8 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
         updateFilters,
         getNodeById,
         getConnectionsForNode,
+        refreshNetworkData,
+        isLoading,
       }}
     >
       {children}

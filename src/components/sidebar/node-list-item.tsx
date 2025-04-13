@@ -73,8 +73,8 @@ const NodeListItem: React.FC<NodeListItemProps> = ({ node }) => {
               {node.metrics.latency} ms
             </span>
           </div>
-          <div>
-            <span className="text-muted-foreground">Packet Loss:</span>{' '}
+          <div className="flex justify-end">
+            <span className="text-muted-foreground">Packet Loss:</span>
             <span className={node.metrics.packetLoss > 1 ? 'text-critical' : node.metrics.packetLoss > 0.5 ? 'text-degraded' : ''}>
               {node.metrics.packetLoss}%
             </span>

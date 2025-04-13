@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { useNetwork } from '@/context/network-context';
 import { Card, CardContent } from '@/components/ui/card';
@@ -54,7 +53,7 @@ const NetworkSummary: React.FC = () => {
             </div>
           </div>
           
-          <div className="flex flex-wrap gap-2 text-xs mb-3">
+          <div className="flex flex-wrap gap-2 text-xs mb-3 justify-center">
             <div className="flex gap-1 items-center">
               <StatusBadge status="healthy" showText={false} size="sm" />
               <span>{metrics.healthyNodes} Healthy</span>
@@ -74,8 +73,8 @@ const NetworkSummary: React.FC = () => {
               <span className="text-muted-foreground">Avg Latency:</span>{' '}
               <span>{metrics.avgLatency} ms</span>
             </div>
-            <div>
-              <span className="text-muted-foreground">Avg Packet Loss:</span>{' '}
+            <div className="flex justify-end">
+              <span className="text-muted-foreground">Avg Packet Loss:</span>
               <span>{metrics.avgPacketLoss}%</span>
             </div>
           </div>

@@ -1,4 +1,4 @@
-export type NodeStatus = 'healthy' | 'degraded' | 'critical';
+export type NodeStatus = 'healthy' | 'degraded' | 'critical' | 'unknown';
 
 export interface NetworkNode {
   id: string;

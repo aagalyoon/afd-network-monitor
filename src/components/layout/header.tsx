@@ -8,14 +8,24 @@ import TileInfo from '@/components/map/tile-info';
 import { useSettings } from '@/context/settings-context';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { useNetwork } from '@/context/network-context';
 
 export function Header() {
   const { theme, toggleTheme } = useTheme();
   const { useMockData, toggleMockData } = useSettings();
+  const { refreshNetworkData } = useNetwork();
+  
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
 
-  const refreshData = () => {
-    // AG TODO: Implement this
-    window.alert('WIP');
+  const refreshData = async () => {
+    if (isRefreshing) return;
+    
+    setIsRefreshing(true);
+    try {
+      await refreshNetworkData();
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   return (
@@ -39,13 +49,9 @@ export function Header() {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  onClick={refreshData}
-                  className="h-9 w-9"
-                >
-                  <RefreshCw className="h-5 w-5" />
+                <Button variant="outline" size="icon" onClick={refreshData} disabled={isRefreshing}>
+                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <span className="sr-only">Refresh data</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -57,21 +63,17 @@ export function Header() {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={toggleTheme}
-                  className="h-9 w-9"
-                >
-                  {theme === 'light' ? (
-                    <Sun className="h-5 w-5" />
-                  ) : (
+                <Button variant="ghost" size="icon" onClick={toggleTheme}>
+                  {theme === 'dark' ? (
                     <Moon className="h-5 w-5" />
+                  ) : (
+                    <Sun className="h-5 w-5" />
                   )}
+                  <span className="sr-only">Toggle theme</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Toggle {theme === 'light' ? 'dark' : 'light'} mode</p>
+                <p>Toggle {theme === 'dark' ? 'light' : 'dark'} mode</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -86,16 +88,18 @@ export function Header() {
                     onCheckedChange={() => toggleMockData()}
                   />
                   <Label htmlFor="data-mode" className="cursor-pointer">
-                    {useMockData ? 'Mock Data' : 'Real API'}
+                    {useMockData 
+                      ? 'Debug Mode' 
+                      : 'Production Mode'}
                   </Label>
                 </div>
               </TooltipTrigger>
-              <TooltipContent>
+              <TooltipContent className="max-w-xs">
                 <p>Toggle between mock data and real API calls to the Whiskey servers</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {useMockData 
                     ? "Using simulated network data" 
-                    : "Connecting to 10.10.4.161 and 10.10.4.162"}
+                    : "Connecting to real API endpoints at 10.10.4.161:31800 and 10.10.4.162:31800"}
                 </p>
               </TooltipContent>
             </Tooltip>
