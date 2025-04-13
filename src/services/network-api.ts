@@ -1,6 +1,6 @@
 import { generateMockPingResponse, generateMockTracerouteResponse } from "../data/mock-data";
 import { DiagnosticResult, NodeStatus, NetworkNode, NetworkConnection } from "../types/network";
-import { API_CONFIG, NetworkNodeConfig, NetworkConnectionConfig } from "../config/api-config";
+import { API_CONFIG, NetworkNodeConfig, NetworkConnectionConfig, ApiEndpoint } from "../config/api-config";
 
 // Convert the configuration node to an application node
 const configNodeToAppNode = (configNode: NetworkNodeConfig, status: NodeStatus = 'unknown'): NetworkNode => {
@@ -54,6 +54,35 @@ const createRealNetworkData = (): { nodes: NetworkNode[], connections: NetworkCo
   );
   
   return { nodes, connections };
+};
+
+// Helper to get the appropriate API endpoint for a target
+const getApiEndpointForTarget = (targetIp: string): ApiEndpoint | null => {
+  // If we have no endpoints configured, return null
+  if (API_CONFIG.API_ENDPOINTS.length === 0) {
+    return null;
+  }
+  
+  // First check if we have specific endpoint mappings for this IP prefix
+  // For example, if an IP starts with 1.1, we might want to use Whiskey1
+  const firstOctet = targetIp.split('.')[0];
+  const secondOctet = targetIp.split('.')[1];
+  const ipPrefix = `${firstOctet}.${secondOctet}`;
+  
+  // Try to find an endpoint with a matching node IP
+  const matchingEndpoint = API_CONFIG.API_ENDPOINTS.find(endpoint => {
+    const matchingNode = API_CONFIG.TOPOLOGY.NODES.find(node => 
+      node.id === endpoint.nodeId && node.ip.startsWith(ipPrefix)
+    );
+    return !!matchingNode;
+  });
+  
+  if (matchingEndpoint) {
+    return matchingEndpoint;
+  }
+  
+  // If no specific mapping found, return the first endpoint as default
+  return API_CONFIG.API_ENDPOINTS[0];
 };
 
 // Helper to convert raw ping API response to our DiagnosticResult format
@@ -190,12 +219,86 @@ const createErrorDiagnosticResult = (
   };
 };
 
+// Check if an API endpoint is reachable
+const checkApiEndpoint = async (endpoint: ApiEndpoint): Promise<boolean> => {
+  try {
+    const response = await fetch(`${endpoint.url}${API_CONFIG.PATHS.HEALTH}`, {
+      method: 'GET',
+      mode: 'cors',
+      credentials: 'same-origin',
+      headers: {
+        'Accept': 'application/json',
+      },
+      signal: AbortSignal.timeout(5000)
+    });
+    
+    return response.ok;
+  } catch (error) {
+    console.error(`API endpoint ${endpoint.name} (${endpoint.url}) is not reachable:`, error);
+    return false;
+  }
+};
+
 // Network API services
 export const NetworkAPI = {
   // Get real network topology data
-  getNetworkData: async (): Promise<{ nodes: NetworkNode[], connections: NetworkConnection[] }> => {
-    // Create initial network data from config
-    return createRealNetworkData();
+  getNetworkData: async (useMockData: boolean = true): Promise<{ nodes: NetworkNode[], connections: NetworkConnection[] }> => {
+    // If using mock data, create from config
+    if (useMockData) {
+      return createRealNetworkData();
+    }
+    
+    // In production mode, try to fetch topology from API
+    try {
+      // Make sure we have at least one API endpoint
+      if (API_CONFIG.API_ENDPOINTS.length === 0) {
+        console.error("No API endpoints configured");
+        return createRealNetworkData();
+      }
+      
+      // Use the first API endpoint for topology data
+      const apiEndpoint = API_CONFIG.API_ENDPOINTS[0];
+      
+      console.log(`Fetching network topology from ${apiEndpoint.url}${API_CONFIG.PATHS.TOPOLOGY}`);
+      
+      // Check if the API endpoint is reachable
+      const endpointReachable = await checkApiEndpoint(apiEndpoint);
+      
+      if (!endpointReachable) {
+        console.error(`Network API endpoint ${apiEndpoint.name} is not reachable`);
+        // Fall back to config data
+        return createRealNetworkData();
+      }
+      
+      // Try to fetch network topology from API
+      const response = await fetch(`${apiEndpoint.url}${API_CONFIG.PATHS.TOPOLOGY}`, {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'same-origin',
+        headers: {
+          'Accept': 'application/json',
+        },
+        signal: AbortSignal.timeout(API_CONFIG.TIMEOUTS.DEFAULT)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log("Received topology data from API:", data);
+      
+      // Process the API response
+      // This assumes the API returns a compatible format; adjust as needed
+      return {
+        nodes: data.nodes || [],
+        connections: data.connections || []
+      };
+    } catch (error) {
+      console.error("Failed to fetch network topology from API:", error);
+      // Fall back to config data
+      return createRealNetworkData();
+    }
   },
   
   // Ping a target using either mock data or real API
@@ -204,24 +307,32 @@ export const NetworkAPI = {
       // Use mock data implementation
       return generateMockPingResponse(targetIp, nodeStatus);
     } else {
-      // Determine which server to use based on IP patterns
-      // Find a server node that has this target in its IP
-      const serverNode = API_CONFIG.TOPOLOGY.NODES.find(
-        node => node.type === 'server' && node.internalIp
-      );
+      // Get the appropriate API endpoint for this target
+      const apiEndpoint = getApiEndpointForTarget(targetIp);
       
-      if (!serverNode) {
-        return createErrorDiagnosticResult(targetIp, "ping", new Error("No server node available"));
+      if (!apiEndpoint) {
+        return createErrorDiagnosticResult(targetIp, "ping", new Error("No API endpoint available"));
       }
       
-      // Use the first server's API endpoint
-      const isWhiskey1 = targetIp.startsWith('1.1');
-      const apiEndpoint = isWhiskey1 ? 
-        API_CONFIG.ENDPOINTS.WHISKEY1_API : 
-        API_CONFIG.ENDPOINTS.WHISKEY2_API;
+      // Check if the API endpoint is reachable
+      const endpointReachable = await checkApiEndpoint(apiEndpoint);
+      
+      if (!endpointReachable) {
+        return createErrorDiagnosticResult(
+          targetIp, 
+          "ping", 
+          new Error(`API endpoint ${apiEndpoint.name} is not reachable`)
+        );
+      }
       
       try {
-        const response = await fetch(`${apiEndpoint}/ping/${targetIp}`, {
+        const response = await fetch(`${apiEndpoint.url}${API_CONFIG.PATHS.PING}/${targetIp}`, {
+          method: 'GET',
+          mode: 'cors',
+          credentials: 'same-origin',
+          headers: {
+            'Accept': 'application/json',
+          },
           signal: AbortSignal.timeout(API_CONFIG.TIMEOUTS.DEFAULT)
         });
         
@@ -251,14 +362,32 @@ export const NetworkAPI = {
       // Use mock data implementation
       return generateMockTracerouteResponse(targetIp, nodeStatus);
     } else {
-      // Determine which server to use based on IP patterns
-      const isWhiskey1 = targetIp.startsWith('1.1');
-      const apiEndpoint = isWhiskey1 ? 
-        API_CONFIG.ENDPOINTS.WHISKEY1_API : 
-        API_CONFIG.ENDPOINTS.WHISKEY2_API;
+      // Get the appropriate API endpoint for this target
+      const apiEndpoint = getApiEndpointForTarget(targetIp);
+      
+      if (!apiEndpoint) {
+        return createErrorDiagnosticResult(targetIp, "traceroute", new Error("No API endpoint available"));
+      }
+      
+      // Check if the API endpoint is reachable
+      const endpointReachable = await checkApiEndpoint(apiEndpoint);
+      
+      if (!endpointReachable) {
+        return createErrorDiagnosticResult(
+          targetIp, 
+          "traceroute", 
+          new Error(`API endpoint ${apiEndpoint.name} is not reachable`)
+        );
+      }
       
       try {
-        const response = await fetch(`${apiEndpoint}/traceroute/${targetIp}`, {
+        const response = await fetch(`${apiEndpoint.url}${API_CONFIG.PATHS.TRACEROUTE}/${targetIp}`, {
+          method: 'GET',
+          mode: 'cors',
+          credentials: 'same-origin',
+          headers: {
+            'Accept': 'application/json',
+          },
           signal: AbortSignal.timeout(API_CONFIG.TIMEOUTS.DEFAULT)
         });
         
@@ -294,14 +423,32 @@ export const NetworkAPI = {
       };
     }
     
-    // Determine which server to use based on IP patterns
-    const isWhiskey1 = targetIp.startsWith('1.1');
-    const apiEndpoint = isWhiskey1 ? 
-      API_CONFIG.ENDPOINTS.WHISKEY1_API : 
-      API_CONFIG.ENDPOINTS.WHISKEY2_API;
+    // Get the appropriate API endpoint for this target
+    const apiEndpoint = getApiEndpointForTarget(targetIp);
+    
+    if (!apiEndpoint) {
+      return createErrorDiagnosticResult(targetIp, "network_test", new Error("No API endpoint available"));
+    }
+    
+    // Check if the API endpoint is reachable
+    const endpointReachable = await checkApiEndpoint(apiEndpoint);
+    
+    if (!endpointReachable) {
+      return createErrorDiagnosticResult(
+        targetIp, 
+        "network_test", 
+        new Error(`API endpoint ${apiEndpoint.name} is not reachable`)
+      );
+    }
     
     try {
-      const response = await fetch(`${apiEndpoint}/network_test/${targetIp}`, {
+      const response = await fetch(`${apiEndpoint.url}${API_CONFIG.PATHS.NETWORK_TEST}/${targetIp}`, {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'same-origin',
+        headers: {
+          'Accept': 'application/json',
+        },
         signal: AbortSignal.timeout(API_CONFIG.TIMEOUTS.NETWORK_TEST)
       });
       

@@ -56,35 +56,39 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Load network data based on mock mode setting
   const loadNetworkData = async () => {
     setIsLoading(true);
+    console.log(`[Network] Loading network data with mock mode: ${useMockData}`);
     try {
       if (useMockData) {
         // Use mock data
+        console.log(`[Network] Using mock data: ${mockNodes.length} nodes, ${mockConnections.length} connections`);
         setNetworkData(prev => ({
           ...prev,
           nodes: mockNodes,
           connections: mockConnections,
         }));
         toast({
-          title: "Network Data Loaded",
+          title: "Network Data",
           description: `Loaded ${mockNodes.length} nodes and ${mockConnections.length} connections`,
           variant: "default"
         });
       } else {
         // Use real data from API
-        const { nodes, connections } = await NetworkAPI.getNetworkData();
+        console.log("[Network] Fetching real network data from API...");
+        const { nodes, connections } = await NetworkAPI.getNetworkData(useMockData);
+        console.log(`[Network] API returned ${nodes.length} nodes and ${connections.length} connections`);
         setNetworkData(prev => ({
           ...prev,
           nodes,
           connections,
         }));
         toast({
-          title: "Network Data Loaded",
+          title: "Network Data",
           description: `Loaded ${nodes.length} nodes and ${connections.length} connections`,
           variant: "default"
         });
       }
     } catch (error) {
-      console.error("Error loading network data:", error);
+      console.error("[Network] Error loading network data:", error);
       toast({
         title: "Error Loading Data",
         description: "Failed to load network data. Check console for details.",
