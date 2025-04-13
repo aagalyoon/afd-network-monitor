@@ -2,7 +2,7 @@ import React from 'react';
 import { useTheme } from '@/context/theme-context';
 import { useMap } from '@/context/map-context';
 import { Button } from '@/components/ui/button';
-import { Sun, Moon, RefreshCw } from 'lucide-react';
+import { Sun, Moon, RefreshCw, ActivitySquare, Network } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import TileInfo from '@/components/map/tile-info';
 
@@ -18,7 +18,15 @@ export function Header() {
     <header className="sticky top-0 z-10 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-16 items-center justify-between px-4">
         <div className="flex items-center gap-2">
-          <h1 className="text-xl font-semibold text-primary">AFD Network Monitor</h1>
+          <div className="flex items-center">
+            <Network className="h-7 w-7 text-primary mr-2 stroke-[2.5px]" />
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-primary flex items-center">
+                <span>AFD</span>
+                <span className="ml-1.5">Network Monitor</span>
+              </h1>
+            </div>
+          </div>
         </div>
         
         <div className="flex items-center gap-2">
