@@ -1,0 +1,161 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11.2%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11.2%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11.2%;
+
+    --primary: 215 60% 40%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222 47% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214 31.8% 91.4%;
+    --input: 214 31.8% 91.4%;
+    --ring: 222 84% 4.9%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 220 33% 99%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 215 60% 40%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Network status colors */
+    --healthy: 142 72% 40%;
+    --degraded: 38 92% 50%;
+    --critical: 0 84% 60%;
+    --network-line: 215 60% 40%;
+    --network-dot: 215 60% 60%;
+  }
+
+  .dark {
+    --background: 222 47% 10%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 11.2%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 11.2%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 215 60% 50%;
+    --primary-foreground: 222 47% 11.2%;
+
+    --secondary: 217 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 32.6% 17.5%;
+    --input: 217 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+
+    --sidebar-background: 222 47% 12%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 215 60% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 47% 15%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 222 47% 15%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Network status colors - same in dark mode for consistency */
+    --healthy: 142 72% 40%;
+    --degraded: 38 92% 50%;
+    --critical: 0 84% 60%;
+    --network-line: 215 60% 50%;
+    --network-dot: 215 60% 70%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+/* Map styles for dark/light mode */
+.leaflet-container {
+  @apply h-full w-full transition-colors duration-300;
+  background-color: #AAD3DF !important;
+}
+
+.dark .leaflet-tile {
+  filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+}
+
+.dark .leaflet-container {
+  @apply bg-background;
+}
+
+.dark .leaflet-control-attribution {
+  @apply bg-secondary/80 text-foreground;
+}
+
+@layer utilities {
+  .status-healthy {
+    @apply text-healthy;
+  }
+  
+  .status-degraded {
+    @apply text-degraded;
+  }
+  
+  .status-critical {
+    @apply text-critical animate-pulse-critical;
+  }
+  
+  .map-container {
+    @apply h-[calc(100vh-64px)] w-full;
+  }
+  
+  /* Force scrollbars to be visible in scrollable containers */
+  .overflow-y-auto, .overflow-y-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+  }
+  
+  .overflow-y-auto::-webkit-scrollbar, .overflow-y-scroll::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .overflow-y-auto::-webkit-scrollbar-thumb, .overflow-y-scroll::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+  }
+}

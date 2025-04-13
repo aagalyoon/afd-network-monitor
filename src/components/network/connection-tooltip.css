@@ -1,0 +1,10 @@
+/* Custom styles for connection tooltip */
+.leaflet-tooltip.wide-tooltip {
+  width: 24rem !important; /* Make tooltip 3x the original width */
+  max-width: none !important;
+}
+
+/* Ensure the tooltip content fills the available space */
+.wide-tooltip .leaflet-tooltip-content {
+  width: 100%;
+} 
