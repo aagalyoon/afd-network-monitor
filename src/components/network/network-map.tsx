@@ -9,7 +9,7 @@ import { useEffect } from 'react';
 import { LatLngTuple, Map as LeafletMap } from 'leaflet';
 import CustomTileLayer from '../map/custom-tile-layer';
 import CustomZoomButtons from '../map/custom-zoom-buttons';
-import { Plus, Minus } from 'lucide-react';
+import { Plus, Minus, Compass } from 'lucide-react';
 
 // Initial view centered on Columbia, MD
 const INITIAL_VIEW = {
@@ -43,7 +43,7 @@ interface NetworkMapProps {
 }
 
 const NetworkMap: React.FC<NetworkMapProps> = ({ nodes, connections }) => {
-  const { center, zoom } = useMapContext();
+  const { center, zoom, setView } = useMapContext();
   const [mapLoaded, setMapLoaded] = useState(false);
   const mapRef = useRef<LeafletMap | null>(null);
   
@@ -76,6 +76,14 @@ const NetworkMap: React.FC<NetworkMapProps> = ({ nodes, connections }) => {
     }
   };
   
+  const handleResetView = () => {
+    if (mapRef.current) {
+      mapRef.current.setView(INITIAL_VIEW.center, INITIAL_VIEW.zoom, { animate: true });
+    }
+    // Also update the context
+    setView(INITIAL_VIEW.center, INITIAL_VIEW.zoom);
+  };
+  
   // Get map reference when the component is mounted
   const handleMapRef = (mapInstance: LeafletMap | null) => {
     if (mapInstance) {
@@ -87,6 +95,18 @@ const NetworkMap: React.FC<NetworkMapProps> = ({ nodes, connections }) => {
     <div className="map-container relative">
       <div className="absolute top-3 right-3 z-[1000] bg-green-100 dark:bg-green-900/80 text-green-800 dark:text-green-200 text-xs px-2 py-1 rounded-full border border-green-200 dark:border-green-800/50">
         Local Tiles
+      </div>
+      
+      {/* Reset view button */}
+      <div className="absolute top-3 left-3 z-[1000]">
+        <button 
+          onClick={handleResetView}
+          className="h-10 px-3 rounded-md bg-white hover:bg-gray-100 text-black flex items-center justify-center border border-gray-300 shadow-md text-sm font-medium"
+          aria-label="Reset view"
+        >
+          <Compass size={16} className="mr-2" />
+          Reset View
+        </button>
       </div>
       
       {/* External zoom controls - positioned on the left side of the page */}
