@@ -6,35 +6,37 @@ import { useNetwork } from '@/context/network-context';
 import { ThemeProvider } from '@/context/theme-context';
 import { NetworkProvider } from '@/context/network-context';
 import { MapProvider } from '@/context/map-context';
+import { SettingsProvider } from '@/context/settings-context';
 
-const Index = () => {
-  return (
-    <ThemeProvider>
-      <NetworkProvider>
-        <MapProvider>
-          <div className="flex flex-col h-screen overflow-hidden">
-            <Header />
-            <div className="flex flex-1 overflow-hidden">
-              <NetworkContent />
-            </div>
-          </div>
-        </MapProvider>
-      </NetworkProvider>
-    </ThemeProvider>
-  );
-};
-
-// Separate component to use the network context after it's provided
 const NetworkContent = () => {
-  const { nodes, connections } = useNetwork();
+  const { filteredNodes, connections } = useNetwork();
   
   return (
     <>
       <div className="flex-1">
-        <NetworkMap nodes={nodes} connections={connections} />
+        <NetworkMap nodes={filteredNodes} connections={connections} />
       </div>
       <NetworkSidebar />
     </>
+  );
+};
+
+const Index = () => {
+  return (
+    <ThemeProvider>
+      <SettingsProvider>
+        <NetworkProvider>
+          <MapProvider>
+            <div className="flex flex-col h-screen overflow-hidden">
+              <Header />
+              <div className="flex flex-1 overflow-hidden">
+                <NetworkContent />
+              </div>
+            </div>
+          </MapProvider>
+        </NetworkProvider>
+      </SettingsProvider>
+    </ThemeProvider>
   );
 };
 

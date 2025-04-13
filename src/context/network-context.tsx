@@ -1,7 +1,9 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { mockNodes, mockConnections, generateMockPingResponse, generateMockTracerouteResponse } from '../data/mock-data';
+import { mockNodes, mockConnections } from '../data/mock-data';
 import { NetworkNode, NetworkConnection, NodeStatus, DiagnosticResult, NetworkDataState } from '../types/network';
 import { toast } from '@/components/ui/use-toast';
+import { NetworkAPI } from '@/services/network-api';
+import { useSettings } from './settings-context';
 
 type ActiveTab = 'nodes' | 'details' | 'diagnostics';
 
@@ -22,6 +24,7 @@ interface NetworkContextType {
   setActiveTab: (tab: ActiveTab) => void;
   pingNode: (nodeId: string) => void;
   tracerouteNode: (nodeId: string) => void;
+  networkTestNode: (nodeId: string) => void;
   updateFilters: (filters: Partial<NetworkDataState['filters']>) => void;
   getNodeById: (nodeId: string) => NetworkNode | undefined;
   getConnectionsForNode: (nodeId: string) => NetworkConnection[];
@@ -30,6 +33,8 @@ interface NetworkContextType {
 const NetworkContext = createContext<NetworkContextType | undefined>(undefined);
 
 export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { useMockData } = useSettings();
+  
   const [networkData, setNetworkData] = useState<NetworkDataState>({
     nodes: mockNodes,
     connections: mockConnections,
@@ -80,9 +85,11 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
       description: `Running ping to ${node.ip}...`,
     });
     
-    // Generate mock ping result
-    setTimeout(() => {
-      const pingResult = generateMockPingResponse(node.ip, node.status);
+    // Call ping API (real or mock)
+    const pingPromise = NetworkAPI.ping(node.ip, node.status, useMockData);
+    
+    // Handle the result
+    pingPromise.then(pingResult => {
       setNetworkData((prev) => ({
         ...prev,
         diagnostics: [pingResult, ...prev.diagnostics.slice(0, 9)], // Keep last 10 entries
@@ -93,7 +100,7 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
         description: `Pinged ${node.name} (${node.ip}) with ${pingResult.metrics?.packetLoss}% packet loss`,
         variant: pingResult.success ? 'default' : 'destructive',
       });
-    }, 1500); // Simulate network delay
+    });
   };
 
   // Run traceroute command
@@ -107,9 +114,11 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
       description: `Running traceroute to ${node.ip}...`,
     });
     
-    // Generate mock traceroute result
-    setTimeout(() => {
-      const tracerouteResult = generateMockTracerouteResponse(node.ip, node.status);
+    // Call traceroute API (real or mock)
+    const traceroutePromise = NetworkAPI.traceroute(node.ip, node.status, useMockData);
+    
+    // Handle the result
+    traceroutePromise.then(tracerouteResult => {
       setNetworkData((prev) => ({
         ...prev,
         diagnostics: [tracerouteResult, ...prev.diagnostics.slice(0, 9)], // Keep last 10 entries
@@ -120,7 +129,46 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
         description: `Traceroute to ${node.name} (${node.ip}) completed with ${tracerouteResult.results.length} hops`,
         variant: tracerouteResult.success ? 'default' : 'destructive',
       });
-    }, 3000); // Simulate network delay (traceroute takes longer)
+    });
+  };
+  
+  // Run network test command (only available in real data mode)
+  const networkTestNode = (nodeId: string) => {
+    // This feature is only available in real data mode
+    if (useMockData) {
+      toast({
+        title: "Network Test Unavailable",
+        description: "Network test is only available in real data mode. Turn off mock mode to use this feature.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const node = networkData.nodes.find((n) => n.id === nodeId);
+    if (!node) return;
+    
+    // Show notification that network test is running
+    toast({
+      title: `Network Test to ${node.name}`,
+      description: `Running network performance test to ${node.ip}...`,
+    });
+    
+    // Call network test API
+    const networkTestPromise = NetworkAPI.networkTest(node.ip);
+    
+    // Handle the result
+    networkTestPromise.then(networkTestResult => {
+      setNetworkData((prev) => ({
+        ...prev,
+        diagnostics: [networkTestResult, ...prev.diagnostics.slice(0, 9)], // Keep last 10 entries
+      }));
+      
+      toast({
+        title: `Network Test ${networkTestResult.success ? 'completed' : 'failed'}`,
+        description: `Network test to ${node.name} (${node.ip}) completed`,
+        variant: networkTestResult.success ? 'default' : 'destructive',
+      });
+    });
   };
 
   // Update filters
@@ -168,6 +216,7 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setActiveTab,
         pingNode,
         tracerouteNode,
+        networkTestNode,
         updateFilters,
         getNodeById,
         getConnectionsForNode,

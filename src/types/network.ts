@@ -1,4 +1,3 @@
-
 export type NodeStatus = 'healthy' | 'degraded' | 'critical';
 
 export interface NetworkNode {
@@ -36,7 +35,7 @@ export interface NetworkConnection {
 
 export interface DiagnosticResult {
   timestamp: string;
-  commandType: 'ping' | 'traceroute';
+  commandType: 'ping' | 'traceroute' | 'network_test';
   target: string;
   results: string[];
   success: boolean;

@@ -12,7 +12,7 @@ const NetworkSidebar: React.FC = () => {
   const { selectedNodeId, activeTab, setActiveTab } = useNetwork();
   
   return (
-    <div className="h-[calc(100vh-64px)] border-l bg-background flex flex-col w-80 absolute right-0 top-16 overflow-hidden">
+    <div className="h-full border-l bg-background flex flex-col w-80 overflow-hidden">
       <NetworkSummary />
       <Separator />
       

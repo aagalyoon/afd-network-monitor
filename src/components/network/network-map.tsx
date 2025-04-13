@@ -9,7 +9,7 @@ import { useEffect } from 'react';
 import { LatLngTuple, Map as LeafletMap } from 'leaflet';
 import CustomTileLayer from '../map/custom-tile-layer';
 import CustomZoomButtons from '../map/custom-zoom-buttons';
-import { Plus, Minus, Compass } from 'lucide-react';
+import { Compass } from 'lucide-react';
 
 // Initial view centered on Columbia, MD
 const INITIAL_VIEW = {
@@ -51,7 +51,7 @@ const NetworkMap: React.FC<NetworkMapProps> = ({ nodes, connections }) => {
   const mapOptions = {
     minZoom: 5, // Temporarily disabled zoom levels 3 and 4
     maxZoom: 8,
-    attributionControl: true,
+    attributionControl: false, // Disable attribution control to remove Leaflet link
     zoomControl: false, // Disable default zoom control, we'll use our custom one
     maxBounds: [
       [24.5, -125.0] as LatLngTuple, // Southwest corner of US
@@ -63,18 +63,6 @@ const NetworkMap: React.FC<NetworkMapProps> = ({ nodes, connections }) => {
   const onMapReady = useCallback(() => {
     setMapLoaded(true);
   }, []);
-  
-  const handleZoomIn = () => {
-    if (mapRef.current) {
-      mapRef.current.zoomIn();
-    }
-  };
-  
-  const handleZoomOut = () => {
-    if (mapRef.current) {
-      mapRef.current.zoomOut();
-    }
-  };
   
   const handleResetView = () => {
     if (mapRef.current) {
@@ -106,24 +94,6 @@ const NetworkMap: React.FC<NetworkMapProps> = ({ nodes, connections }) => {
         >
           <Compass size={16} className="mr-2" />
           Reset View
-        </button>
-      </div>
-      
-      {/* External zoom controls - positioned on the left side of the page */}
-      <div className="absolute bottom-8 left-8 z-[1000] flex flex-col gap-2 shadow-xl" style={{ borderRadius: '50%' }}>
-        <button 
-          onClick={handleZoomIn}
-          className="h-12 w-12 rounded-full bg-white hover:bg-gray-100 text-black flex items-center justify-center border border-gray-300 shadow-md"
-          aria-label="Zoom in"
-        >
-          <Plus size={24} />
-        </button>
-        <button 
-          onClick={handleZoomOut}
-          className="h-12 w-12 rounded-full bg-white hover:bg-gray-100 text-black flex items-center justify-center border border-gray-300 shadow-md"
-          aria-label="Zoom out"
-        >
-          <Minus size={24} />
         </button>
       </div>
       

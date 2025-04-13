@@ -1,6 +1,6 @@
-
 import React from 'react';
 import { cn } from '@/lib/utils';
+import { NodeStatus } from '@/types/network';
 
 interface MetricDisplayProps {
   label: string;
@@ -12,6 +12,7 @@ interface MetricDisplayProps {
   className?: string;
   size?: 'sm' | 'md' | 'lg';
   orientation?: 'horizontal' | 'vertical';
+  status?: NodeStatus;
 }
 
 const MetricDisplay: React.FC<MetricDisplayProps> = ({
@@ -24,11 +25,21 @@ const MetricDisplay: React.FC<MetricDisplayProps> = ({
   className,
   size = 'md',
   orientation = 'vertical',
+  status,
 }) => {
   const numericValue = typeof value === 'number' ? value : parseFloat(value.toString());
   
-  // Determine severity based on thresholds (if it's a percentage or relevant metric)
+  // Determine severity based on thresholds or directly from status prop
   const getSeverityClass = () => {
+    // If status is provided, use it directly
+    if (status) {
+      if (status === 'critical') return 'text-critical';
+      if (status === 'degraded') return 'text-degraded';
+      if (status === 'healthy') return 'text-healthy';
+      return '';
+    }
+    
+    // Otherwise use the threshold logic
     if (!showThresholds || isNaN(numericValue)) return '';
     
     if (numericValue >= thresholdHigh) return 'text-critical';

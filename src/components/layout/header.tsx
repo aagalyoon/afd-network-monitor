@@ -2,12 +2,16 @@ import React from 'react';
 import { useTheme } from '@/context/theme-context';
 import { useMap } from '@/context/map-context';
 import { Button } from '@/components/ui/button';
-import { Sun, Moon, RefreshCw, ActivitySquare, Network } from 'lucide-react';
+import { Sun, Moon, RefreshCw, ActivitySquare, Network, MonitorSmartphone } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import TileInfo from '@/components/map/tile-info';
+import { useSettings } from '@/context/settings-context';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 export function Header() {
   const { theme, toggleTheme } = useTheme();
+  const { useMockData, toggleMockData } = useSettings();
 
   const refreshData = () => {
     // AG TODO: Implement this
@@ -68,6 +72,31 @@ export function Header() {
               </TooltipTrigger>
               <TooltipContent>
                 <p>Toggle {theme === 'light' ? 'dark' : 'light'} mode</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center space-x-2">
+                  <Switch 
+                    id="data-mode" 
+                    checked={!useMockData}
+                    onCheckedChange={() => toggleMockData()}
+                  />
+                  <Label htmlFor="data-mode" className="cursor-pointer">
+                    {useMockData ? 'Mock Data' : 'Real API'}
+                  </Label>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Toggle between mock data and real API calls to the Whiskey servers</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {useMockData 
+                    ? "Using simulated network data" 
+                    : "Connecting to 10.10.4.161 and 10.10.4.162"}
+                </p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
